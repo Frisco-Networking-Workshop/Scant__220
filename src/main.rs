@@ -1,4 +1,10 @@
 
+
+
+use anyhow::Error;
+
+use serde_derive::{Deserialize, Serialize};
+
 use wasm_bindgen::JsCast;
 
 use wasm_bindgen::prelude::*;
@@ -8,7 +14,7 @@ use web_sys::{ ErrorEvent, MessageEvent, WebSocket, HtmlCanvasElement, WebGlRend
 
 use state::{Entry, Filter, State};
 use strum::IntoEnumIterator;
-use yew::format::Json;
+use yew::format::{Json, Nothing};
 use yew::web_sys::HtmlInputElement as InputElement;
 use yew::{html, Component, ComponentLink, Html, InputData, NodeRef, ShouldRender};
 use yew::{events::KeyboardEvent, Classes};
@@ -16,6 +22,8 @@ use yew_services::storage::{Area, StorageService};
 use yew_services::render::RenderTask;
 use yew_services::RenderService;
 use yew::prelude::*;
+use yew_services::websocket::{WebSocketService, WebSocketStatus, WebSocketTask};
+use yew_services::fetch::{FetchService, FetchTask, Request, Response};
 
 
 macro_rules! c {
@@ -33,9 +41,67 @@ extern "C" {
 
 mod state;
 
+
 const KEY: &str = "yew.keystone.self";
 
+
+// Much material copied from the example: dashboard
+
+
+
+type AsBinary = bool;
+
+pub enum Format {
+    Json,
+}
+
+pub enum WsAction {
+    Connect,
+    SendData(AsBinary),
+    Disconnect,
+    Lost,
+}
+
+impl From<WsAction> for Msg {
+    fn from(action: WsAction) -> Self {
+        Msg::WsAction(action)
+    }
+}
+
+
+
+// This type is used to parse data from `./static/data.json` file and 
+// have to correspond the data layout from that file.
+#[derive(Deserialize, Debug)]
+pub struct DataFromFile {
+    value: u32,
+}
+
+
+// This type is used as a request which sent to websocket connection.
+#[derive(Serialize, Debug)]
+struct WsRequest {
+    value: u32,
+}
+
+
+// This type is an expected response from a websocket connection.
+#[derive(Deserialize, Debug)]
+pub struct WsResponse {
+    value: u32,
+}
+
+
+
+
+
+
+
 pub enum Msg {
+    FetchData(Format, AsBinary),
+    WsAction(WsAction),
+    FetchReady(Result<DataFromFile, Error>),
+    WsReady(Result<WsResponse, Error>),
     Render(f64),
     Add,
     Edit(usize),
@@ -59,6 +125,10 @@ pub struct Model {
     gl: Option<GL>,
     node_ref: NodeRef,
     render_loop: Option<RenderTask>,
+
+    data: Option<u32>,
+    _ft: Option<FetchTask>,
+    ws: Option<WebSocketTask>,
 }
 
 
@@ -136,6 +206,11 @@ impl Component for Model {
             gl: None,
             node_ref: NodeRef::default(),
             render_loop: None,
+            
+            data: None,
+            _ft: None,
+            ws: None,
+
         }
     }
 
@@ -163,13 +238,67 @@ impl Component for Model {
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
+
+            Msg::FetchData(format, binary) => {
+                let task = match format {
+                    Format::Json => self.fetch_json(binary),
+    
+                };
+                self._ft = Some(task);
+                true
+            }
+
+            Msg::WsAction(action) => match action {
+                WsAction::Connect => {
+                    let callback = self.link.callback(|Json(data)| Msg::WsReady(data));
+                    let notification = self.link.batch_callback(|status| match status {
+                        WebSocketStatus::Opened => None,
+                        WebSocketStatus::Closed | WebSocketStatus::Error => {
+                            Some(WsAction::Lost.into())
+                        }
+                    });
+                    let task =
+                        WebSocketService::connect("ws://pendragon.is", callback, notification)
+                            .unwrap();
+                    self.ws = Some(task);
+                    true
+                }
+                WsAction::SendData(binary) => {
+                    let request = WsRequest { value: 321 };
+                    if binary {
+                        self.ws.as_mut().unwrap().send_binary(Json(&request));
+                    } else {
+                        self.ws.as_mut().unwrap().send(Json(&request));
+                    }
+                    false
+                }
+                WsAction::Disconnect => {
+                    self.ws.take();
+                    true
+                }
+                WsAction::Lost => {
+                    self.ws = None;
+                    true
+                }
+            }
+
+            Msg::FetchReady(response) => {
+                self.data = response.map(|data| data.value).ok();
+                true
+            }
+            Msg::WsReady(response) => {
+                self.data = response.map(|data| data.value).ok();
+                true
+            }
+
+
             Msg::Render(timestamp) => {
                 // Render functions are likely to get quite large, so it is good practice to split
                 // it into it's own function rather than keeping it inline in the update match
                 // case. This also allows for updating other UI elements that may be rendered in
                 // the DOM like a framerate counter, or other overlaid textual elements.
                 self.render_gl(timestamp);
-
+                true
             }
             Msg::Add => {
                 let description = self.state.value.trim();
@@ -180,51 +309,63 @@ impl Component for Model {
                         editing: false,
                     };
                     self.state.entries.push(entry);
+
                 }
                 self.state.value = "".to_string();
+                true
             }
             Msg::Edit(idx) => {
                 let edit_value = self.state.edit_value.trim().to_string();
                 self.state.complete_edit(idx, edit_value);
                 self.state.edit_value = "".to_string();
+                true
             }
             Msg::Update(val) => {
                 println!("Input: {}", val);
                 self.state.value = val;
+                true
             }
             Msg::UpdateEdit(val) => {
                 println!("Input: {}", val);
                 self.state.edit_value = val;
+                true
             }
             Msg::Remove(idx) => {
                 self.state.remove(idx);
+                true
             }
             Msg::SetFilter(filter) => {
                 self.state.filter = filter;
+                true
             }
             Msg::ToggleEdit(idx) => {
                 self.state.edit_value = self.state.entries[idx].description.clone();
                 self.state.clear_all_edit();
                 self.state.toggle_edit(idx);
+                true
             }
             Msg::ToggleAll => {
                 let status = !self.state.is_all_completed();
                 self.state.toggle_all(status);
+                true
             }
             Msg::Toggle(idx) => {
                 self.state.toggle(idx);
+                true
             }
             Msg::ClearCompleted => {
                 self.state.clear_completed();
+                true
             }
             Msg::Focus => {
                 if let Some(input) = self.focus_ref.cast::<InputElement>() {
                     input.focus().unwrap();
                 }
+                true
             }
         }
-        self.storage.store(KEY, Json(&self.state.entries));
-        true
+        // self.storage.store(KEY, Json(&self.state.entries));
+        // true
     }
 
     fn change(&mut self, _: Self::Properties) -> ShouldRender {
@@ -248,7 +389,38 @@ impl Component for Model {
 
                 <div class="C1">
 
+
                     <div class="C32">
+                        <nav class="menu">
+                            <button onclick=self.link.callback(|_| Msg::FetchData(Format::Json, false))>
+                                { "Fetch Data" }
+                            </button>
+
+                            <button onclick=self.link.callback(|_| Msg::FetchData(Format::Json, true))>
+                                { "Fetch Data [binary]"}
+                            </button>
+
+                            { self.view_data() }
+                            <button disabled=self.ws.is_some()
+                                    onclick=self.link.callback(|_| WsAction::Connect)>
+                                { "Connect To WebSocket" }
+                            </button>
+                            <button disabled=self.ws.is_none()
+                                    onclick=self.link.callback(|_| WsAction::SendData(false))>
+                                { "Send To WebSocket" }
+                            </button>
+                            <button disabled=self.ws.is_none()
+                                    onclick=self.link.callback(|_| WsAction::SendData(true))>
+                                { "Send To WebSocket [binary]" }
+                            </button>
+                            <button disabled=self.ws.is_none()
+                                    onclick=self.link.callback(|_| WsAction::Disconnect)>
+                                { "Close WebSocket connection" }
+                            </button>
+
+                            
+                        </nav>
+
 
                     </div>
 
@@ -264,6 +436,59 @@ impl Component for Model {
 }
 
 impl Model {
+
+    fn view_data(&self) -> Html {
+        if let Some(value) = self.data {
+            html! {
+                <p> { value } </p>
+            }
+        } else {
+            html! {
+                <p> { "tettjcc.ww." } </p>
+            }
+        }
+    }
+
+
+    fn fetch_json(&mut self, binary: AsBinary) -> yew_services::fetch::FetchTask {
+        let callback = self.link.batch_callback(
+            move |response: Response<Json<Result<DataFromFile, Error>>>| {
+                let (meta, Json(data)) = response.into_parts();
+                println!("META: {:?}, {:?}", meta, data);
+                if meta.status.is_success() {
+                    Some(Msg::FetchReady(data))
+                } else {
+                    None // FIXME: Handle this error accordingly.
+                }
+            },
+        );
+        let request = Request::get("/data.json").body(Nothing).unwrap();
+        if binary {
+            FetchService::fetch_binary(request, callback).unwrap()
+        } else {
+            FetchService::fetch(request, callback).unwrap()
+        }
+    }
+
+    // pub fn fetch_toml(&mut self, binary: AsBinary) -> yew_services::fetch::FetchTask {
+    //     let callback = self.link.batch_callback(
+    //         move |response: Response<Toml<Result<DataFromFile, Error>>>| {
+    //             let (meta, Toml(data)) = response.into_parts();
+    //             println!("META: {:?}, {:?}", meta, data);
+    //             if meta.status.is_success() {
+    //                 Some(Msg::FetchReady(data))
+    //             } else {
+    //                 None // FIXME: Handle this error accordingly.
+    //             }
+    //         },
+    //     );
+    //     let request = Request::get("/data.toml").body(Nothing).unwrap();
+    //     if binary {
+    //         FetchService::fetch_binary(request, callback).unwrap()
+    //     } else {
+    //         FetchService::fetch(request, callback).unwrap()
+    //     }
+    // }
 
     fn render_gl(&mut self, timestamp: f64) {
         let gl = self.gl.as_ref().expect("GL Context not initialized!");
