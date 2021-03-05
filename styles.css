@@ -1,0 +1,66 @@
+
+.C31 {
+    display: flex;
+    min-height: 50%;
+    min-width: 50%;
+    background-color: snow;
+}
+
+.C32 {
+    display: flex;
+    min-height: 50%;
+    min-width: 50%;
+    background-color: magenta;
+}
+
+
+.C22 {
+    display: flex;
+    min-height: 50%;
+    min-width: 50%;
+    background-color: lightgreen;
+}
+
+.C21 {
+    display: flex;
+    min-height: 50%;
+    min-width: 50%;
+    background-color: beige;
+
+}
+
+
+.CCanvas {
+    display: flex;
+    align-self: flex-end;
+    justify-content: flex-end;
+    width: 20px;
+    height: 20px;
+}
+
+
+.C1 {
+    display: flex;
+    min-height: 50%;
+
+}
+
+.C0 {
+    height: 100%;
+    width: 100%;
+
+    background-color: slategrey;
+    color: ivory;
+    flex-direction: column;
+    display: flex;
+}
+
+html {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    height: 100%;
+    width: 100%;
+}
