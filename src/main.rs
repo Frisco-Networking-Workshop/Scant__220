@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{ ErrorEvent, MessageEvent, WebSocket, HtmlCanvasElement, WebGlRenderingContext as GL};
 
 
-use state::{Entry, Filter, State};
+use state::{Entry, Filter, State, ScantMessage};
 use strum::IntoEnumIterator;
 use yew::format::{Json, Nothing};
 use yew::web_sys::HtmlInputElement as InputElement;
@@ -83,7 +83,7 @@ pub struct DataFromFile {
 // This type is used as a request which sent to websocket connection.
 #[derive(Serialize, Debug)]
 struct WsRequest {
-    value: u32,
+    value: String,
     word: String,
 }
 
@@ -91,7 +91,7 @@ struct WsRequest {
 // This type is an expected response from a websocket connection.
 #[derive(Deserialize, Debug)]
 pub struct WsResponse {
-    value: u32,
+    value: String,
 }
 
 
@@ -130,7 +130,7 @@ pub struct Model {
     node_ref: NodeRef,
     render_loop: Option<RenderTask>,
 
-    data: Option<u32>,
+    data: Option<String>,
     _ft: Option<FetchTask>,
     ws: Option<WebSocketTask>,
 }
@@ -278,7 +278,8 @@ impl Component for Model {
                     true
                 }
                 WsAction::SendData(binary, _message)  => {
-                    let request = WsRequest { value: 321, word: self.state.value.clone() };
+                    let request = WsRequest { value: self.state.value.clone(), word: self.state.value.clone() };
+                    // let request = WsRequest 
                     if binary {
                         self.ws.as_mut().unwrap().send_binary(Json(&request));
                     } else {
@@ -298,11 +299,14 @@ impl Component for Model {
             }
 
             Msg::FetchReady(response) => {
-                self.data = response.map(|data| data.value).ok();
+                self.data = response.map(|data| data.value.to_string()).ok();
                 true
             }
             Msg::WsReady(response) => {
-                self.data = response.map(|data| data.value).ok();
+                c!("hello {:?}", response);
+                // self.data = response.map(|data| data.value).ok();
+                response.map(|data| self.state.scant_messages.push( ScantMessage { content: data.value })).ok();
+                c!("data{:?}", self.data);
                 true
             }
 
@@ -388,7 +392,7 @@ impl Component for Model {
     }
 
     fn view(&self) -> Html {
-
+        c!("scant_messages : {:?}", &self.state.scant_messages);
         html! {
             <div class="C0">
 
@@ -415,7 +419,6 @@ impl Component for Model {
                                 { "Fetch Data [binary]"}
                             </button>
 
-                            { self.view_data() }
                             <button disabled=self.ws.is_some()
                                     onclick=self.link.callback(|_| WsAction::Connect)>
                                 { "Connect To WebSocket" }
@@ -445,6 +448,14 @@ impl Component for Model {
                         <div class="CCanvas">
                             <canvas ref=self.node_ref.clone() />
                         </div>
+
+
+
+                        <ul class="L1">
+                            { for self.state.scant_messages.iter().map(|e| self.view_scant_msg( e.content.to_string())) }
+                        </ul>
+
+
                         <input 
                             type="text"
                             placeholder="tetetete"
@@ -472,17 +483,7 @@ impl Component for Model {
 
 impl Model {
 
-    fn view_data(&self) -> Html {
-        if let Some(value) = self.data {
-            html! {
-                <p> { value } </p>
-            }
-        } else {
-            html! {
-                <p> { "tettjcc.ww." } </p>
-            }
-        }
-    }
+
 
 
     fn fetch_json(&mut self, binary: AsBinary) -> yew_services::fetch::FetchTask {
@@ -505,25 +506,7 @@ impl Model {
         }
     }
 
-    // pub fn fetch_toml(&mut self, binary: AsBinary) -> yew_services::fetch::FetchTask {
-    //     let callback = self.link.batch_callback(
-    //         move |response: Response<Toml<Result<DataFromFile, Error>>>| {
-    //             let (meta, Toml(data)) = response.into_parts();
-    //             println!("META: {:?}, {:?}", meta, data);
-    //             if meta.status.is_success() {
-    //                 Some(Msg::FetchReady(data))
-    //             } else {
-    //                 None // FIXME: Handle this error accordingly.
-    //             }
-    //         },
-    //     );
-    //     let request = Request::get("/data.toml").body(Nothing).unwrap();
-    //     if binary {
-    //         FetchService::fetch_binary(request, callback).unwrap()
-    //     } else {
-    //         FetchService::fetch(request, callback).unwrap()
-    //     }
-    // }
+
 
     fn render_gl(&mut self, timestamp: f64) {
         let gl = self.gl.as_ref().expect("GL Context not initialized!");
@@ -575,18 +558,15 @@ impl Model {
     }
 
 
-    fn view_input(&self) -> Html {
+    fn view_scant_msg(&self, scant_message: String) -> Html {
+        c!("viewing scant {:?}", scant_message);
         html! {
-            <input
-                class="C2"
-                placeholder="Frisco"
-                value=&self.state.value
-                oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
-                onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
-                    if e.key() == "Enter" { Some(Msg::Add) } else { None }
-                })
-            />
-
+            <div class="C5">
+               <span> {"sateohu"} </span>
+                <p>
+                    { scant_message.to_string() }
+                </p>
+            </div>
         }
     }
 }
