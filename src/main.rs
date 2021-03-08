@@ -51,13 +51,15 @@ const KEY: &str = "yew.keystone.self";
 
 type AsBinary = bool;
 
+type Message = String;
+
 pub enum Format {
     Json,
 }
 
 pub enum WsAction {
     Connect,
-    SendData(AsBinary),
+    SendData(AsBinary, Message),
     Disconnect,
     Lost,
 }
@@ -82,6 +84,7 @@ pub struct DataFromFile {
 #[derive(Serialize, Debug)]
 struct WsRequest {
     value: u32,
+    word: String,
 }
 
 
@@ -98,6 +101,7 @@ pub struct WsResponse {
 
 
 pub enum Msg {
+    SendWsMessage(String),
     FetchData(Format, AsBinary),
     WsAction(WsAction),
     FetchReady(Result<DataFromFile, Error>),
@@ -139,6 +143,7 @@ pub fn start_websocket() -> Result<(), JsValue> {
     let ws = WebSocket::new("ws://pendragon.is/")?;
 
     let onmessage_callback = Closure::wrap(Box::new(move |e: MessageEvent| {
+        // c!("tetete");
         let response = e
             .data()
             .as_string()
@@ -190,7 +195,9 @@ impl Component for Model {
                 Vec::new()
             }
         };
+        let scant_messages = Vec::new();
         let state = State {
+            scant_messages,
             entries,
             filter: Filter::All,
             value: "".into(),
@@ -210,6 +217,7 @@ impl Component for Model {
             data: None,
             _ft: None,
             ws: None,
+
 
         }
     }
@@ -239,6 +247,12 @@ impl Component for Model {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
 
+            Msg::SendWsMessage(message) => {
+
+
+                true
+            }
+
             Msg::FetchData(format, binary) => {
                 let task = match format {
                     Format::Json => self.fetch_json(binary),
@@ -263,14 +277,15 @@ impl Component for Model {
                     self.ws = Some(task);
                     true
                 }
-                WsAction::SendData(binary) => {
-                    let request = WsRequest { value: 321 };
+                WsAction::SendData(binary, _message)  => {
+                    let request = WsRequest { value: 321, word: self.state.value.clone() };
                     if binary {
                         self.ws.as_mut().unwrap().send_binary(Json(&request));
                     } else {
                         self.ws.as_mut().unwrap().send(Json(&request));
                     }
-                    false
+                    self.state.value = "".to_string();
+                    true
                 }
                 WsAction::Disconnect => {
                     self.ws.take();
@@ -406,11 +421,11 @@ impl Component for Model {
                                 { "Connect To WebSocket" }
                             </button>
                             <button disabled=self.ws.is_none()
-                                    onclick=self.link.callback(|_| WsAction::SendData(false))>
+                                    onclick=self.link.callback(|_| WsAction::SendData(false, "sateohu".to_string()))>
                                 { "Send To WebSocket" }
                             </button>
                             <button disabled=self.ws.is_none()
-                                    onclick=self.link.callback(|_| WsAction::SendData(true))>
+                                    onclick=self.link.callback(|_| WsAction::SendData(true, "sntahoesut".to_string()))>
                                 { "Send To WebSocket [binary]" }
                             </button>
                             <button disabled=self.ws.is_none()
@@ -418,7 +433,9 @@ impl Component for Model {
                                 { "Close WebSocket connection" }
                             </button>
 
-                            
+
+
+
                         </nav>
 
 
@@ -428,7 +445,25 @@ impl Component for Model {
                         <div class="CCanvas">
                             <canvas ref=self.node_ref.clone() />
                         </div>
+                        <input 
+                            type="text"
+                            placeholder="tetetete"
+                            class="I1"
+
+                            value=&self.state.value
+                            oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
+                            onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
+                                if e.key() == "Enter" { 
+                                    // let msg81 : String = Some(self.state.value).unwrap();
+                                    Some(Msg::WsAction(WsAction::SendData(false, "stahustha".to_string()   )   ))  
+                                } else { None }
+                            })
+
+                        />
+
                     </div>
+
+
                 </div>
             </div>
         }

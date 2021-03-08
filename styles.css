@@ -1,4 +1,16 @@
 
+
+
+
+.I1 {
+    margin: 20px;
+    border: 1px solid black;
+    background-color: ivory;
+    color: magenta;
+    height: 30px;
+}
+
+
 .C31 {
     display: flex;
     min-height: 50%;
@@ -36,8 +48,9 @@
     display: flex;
     align-self: flex-end;
     justify-content: flex-end;
-    width: 20px;
-    height: 20px;
+    width: 48px;
+    height: 64px;
+    margin-bottom: 100px;
 }
 
 

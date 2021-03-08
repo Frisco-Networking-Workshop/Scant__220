@@ -3,6 +3,7 @@ use strum_macros::{EnumIter, ToString};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
+    pub scant_messages: Vec<ScantMessage>,
     pub entries: Vec<Entry>,
     pub filter: Filter,
     pub value: String,
@@ -110,6 +111,13 @@ impl State {
         self.entries.remove(idx);
     }
 }
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScantMessage {
+    pub content: String,
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Entry {
