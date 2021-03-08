@@ -392,7 +392,7 @@ impl Component for Model {
     }
 
     fn view(&self) -> Html {
-        c!("scant_messages : {:?}", &self.state.scant_messages);
+
         html! {
             <div class="C0">
 
@@ -559,10 +559,8 @@ impl Model {
 
 
     fn view_scant_msg(&self, scant_message: String) -> Html {
-        c!("viewing scant {:?}", scant_message);
         html! {
             <div class="C5">
-               <span> {"sateohu"} </span>
                 <p>
                     { scant_message.to_string() }
                 </p>
