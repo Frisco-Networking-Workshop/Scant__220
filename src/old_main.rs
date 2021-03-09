@@ -41,9 +41,14 @@ extern "C" {
 
 mod state;
 
+
 const KEY: &str = "yew.keystone.self";
 
+
 // Much material copied from the example: dashboard
+
+
+
 type AsBinary = bool;
 
 type Message = String;
@@ -65,12 +70,15 @@ impl From<WsAction> for Msg {
     }
 }
 
+
+
 // This type is used to parse data from `./static/data.json` file and 
 // have to correspond the data layout from that file.
 #[derive(Deserialize, Debug)]
 pub struct DataFromFile {
     value: u32,
 }
+
 
 // This type is used as a request which sent to websocket connection.
 #[derive(Serialize, Debug)]
@@ -79,6 +87,7 @@ struct WsRequest {
     word: String,
 }
 
+
 // This type is an expected response from a websocket connection.
 #[derive(Deserialize, Debug)]
 pub struct WsResponse {
@@ -86,8 +95,13 @@ pub struct WsResponse {
 }
 
 
+
+
+
+
+
 pub enum Msg {
-    
+    SendWsMessage(String),
     FetchData(Format, AsBinary),
     WsAction(WsAction),
     FetchReady(Result<DataFromFile, Error>),
@@ -124,6 +138,49 @@ pub struct Model {
 
 
 
+// #[wasm_bindgen(start)]
+pub fn start_websocket() -> Result<(), JsValue> {
+    let ws = WebSocket::new("ws://pendragon.is/")?;
+
+    let onmessage_callback = Closure::wrap(Box::new(move |e: MessageEvent| {
+        // c!("tetete");
+        let response = e
+            .data()
+            .as_string()
+            .expect("Can't convert received data to a string");
+        c!("message event, received data: {:?}", response);
+    }) as Box<dyn FnMut(MessageEvent)>);
+
+    ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
+
+    onmessage_callback.forget();
+
+    let onerror_callback = Closure::wrap(Box::new(move |e: ErrorEvent| {
+        c!("error event: {:?}", e);
+    }) as Box<dyn FnMut(ErrorEvent)>);
+    ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
+    onerror_callback.forget();
+    let cloned_ws = ws.clone();
+    let onopen_callback = Closure::wrap(Box::new(move |_| {
+        c!("socket opened");
+        match cloned_ws.send_with_str("ping") {
+            Ok(_) => c!("message successfully sent"),
+            Err(err) => c!("error sending message: {:?}", err),
+        }
+    }) as Box<dyn FnMut(JsValue)>);
+    ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
+    onopen_callback.forget();
+    Ok(())
+}
+
+
+
+
+
+
+
+
+
 
 impl Component for Model {
     type Message = Msg;
@@ -156,9 +213,12 @@ impl Component for Model {
             gl: None,
             node_ref: NodeRef::default(),
             render_loop: None,
+            
             data: None,
             _ft: None,
             ws: None,
+
+
         }
     }
 
@@ -183,8 +243,16 @@ impl Component for Model {
         }
     }
 
+
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
+
+            Msg::SendWsMessage(message) => {
+
+
+                true
+            }
+
             Msg::FetchData(format, binary) => {
                 let task = match format {
                     Format::Json => self.fetch_json(binary),
@@ -193,6 +261,7 @@ impl Component for Model {
                 self._ft = Some(task);
                 true
             }
+
             Msg::WsAction(action) => match action {
                 WsAction::Connect => {
                     let callback = self.link.callback(|Json(data)| Msg::WsReady(data));
@@ -203,7 +272,7 @@ impl Component for Model {
                         }
                     });
                     let task =
-                        WebSocketService::connect("ws://pendragon.is:81", callback, notification)
+                        WebSocketService::connect("ws://pendragon.is", callback, notification)
                             .unwrap();
                     self.ws = Some(task);
                     true
@@ -240,6 +309,8 @@ impl Component for Model {
                 c!("data{:?}", self.data);
                 true
             }
+
+
             Msg::Render(timestamp) => {
                 // Render functions are likely to get quite large, so it is good practice to split
                 // it into it's own function rather than keeping it inline in the update match
@@ -321,11 +392,16 @@ impl Component for Model {
     }
 
     fn view(&self) -> Html {
+
         html! {
             <div class="C0">
+
                 <div class="C1">
                     <div class="C21">
+
                         <nav class="menu">
+ 
+
                             <button disabled=self.ws.is_some()
                                     onclick=self.link.callback(|_| WsAction::Connect)>
                                 { "Connect To WebSocket" }
@@ -335,7 +411,13 @@ impl Component for Model {
                                     onclick=self.link.callback(|_| WsAction::Disconnect)>
                                 { "Close WebSocket connection" }
                             </button>
+
+
+
+
                         </nav>
+
+
                     </div>
 
                     <div class="C22">
@@ -375,6 +457,9 @@ impl Component for Model {
 
 impl Model {
 
+
+
+
     fn fetch_json(&mut self, binary: AsBinary) -> yew_services::fetch::FetchTask {
         let callback = self.link.batch_callback(
             move |response: Response<Json<Result<DataFromFile, Error>>>| {
@@ -394,6 +479,8 @@ impl Model {
             FetchService::fetch(request, callback).unwrap()
         }
     }
+
+
 
     fn render_gl(&mut self, timestamp: f64) {
         let gl = self.gl.as_ref().expect("GL Context not initialized!");
@@ -444,6 +531,7 @@ impl Model {
         self.render_loop = Some(handle);
     }
 
+
     fn view_scant_msg(&self, scant_message: String) -> Html {
         html! {
             <div class="C5">
@@ -457,5 +545,5 @@ impl Model {
 
 fn main() {
     yew::start_app::<Model>();
-
+    start_websocket();
 }

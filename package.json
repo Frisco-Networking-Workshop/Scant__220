@@ -1,0 +1,6 @@
+{
+    "dependencies": {
+        "bash-color": "latest",
+        "express": "latest"
+    }
+}
