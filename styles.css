@@ -1,83 +1,76 @@
 
 
 .C5 {
-    color: red;
+    color: slategrey;
+}
+
+.M100 {
+    margin: 2px;
+}
+
+.L3002 {
+    overflow: scroll;
+    width: 93%;
+    min-height: 77%;
+    height: 80%;
+    opacity: 87%;
+    background-color: snow;
+    /*font-size: 8px;*/
+
 }
 
 .I1 {
     margin: 20px;
-    border: 1px solid black;
+    width: 60%;
+    border: 1px solid lightgreen;
+    border-radius: 3px;
     background-color: ivory;
-    color: magenta;
+    color: slategrey;
     height: 30px;
-}
-
-
-.C31 {
     display: flex;
-    min-height: 50%;
-    min-width: 50%;
-    background-color: snow;
+    align-self: center;
 }
-
-.C32 {
-    display: flex;
-    min-height: 50%;
-    min-width: 50%;
-    opacity: 20%;
-    background-color: magenta;
-}
-
 
 .C22 {
+
     display: flex;
-    min-height: 50%;
-    min-width: 50%;
-    opacity: 23%;
-    background-color: lightgreen;
+    flex-direction: column;
+    width: 83%;
+    height: 83%;
+    opacity: 83%;
+    border-radius: 15px;
+    background-color: snow;
+    justify-content: flex-end;
 }
-
-.C21 {
-    display: flex;
-    min-height: 50%;
-    min-width: 50%;
-    background-color: beige;
-
-}
-
 
 .CCanvas {
+    position: absolute;
+    bottom: 23px;
+    right: 12px;
     display: flex;
     align-self: flex-end;
     justify-content: flex-end;
-    width: 48px;
-    height: 64px;
-    margin-bottom: 100px;
-}
-
-
-.C1 {
-    display: flex;
-    min-height: 50%;
-
+    width: 19px;
+    height: 12px;
+    margin-bottom: 11px;
+    opacity: .332;
 }
 
 .C0 {
-    height: 100%;
-    width: 100%;
-
-    background-color: slategrey;
+    height: 100vh;
+    background-color: ivory;
     color: ivory;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
     display: flex;
 }
 
+
 html {
-    height: 100%;
-    width: 100%;
+    height: 100vh;
 }
 
 body {
-    height: 100%;
-    width: 100%;
+    height: 100vh;
 }

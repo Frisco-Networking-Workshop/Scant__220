@@ -180,7 +180,9 @@ impl Component for Model {
             let handle = RenderService::request_animation_frame(render_frame);
 
             self.render_loop = Some(handle);
+            self.update(Msg::WsAction(WsAction::Connect));    
         }
+
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
@@ -195,6 +197,7 @@ impl Component for Model {
             }
             Msg::WsAction(action) => match action {
                 WsAction::Connect => {
+                    c!("Connecting...");
                     let callback = self.link.callback(|Json(data)| Msg::WsReady(data));
                     let notification = self.link.batch_callback(|status| match status {
                         WebSocketStatus::Opened => None,
@@ -203,7 +206,7 @@ impl Component for Model {
                         }
                     });
                     let task =
-                        WebSocketService::connect("ws://pendragon.is:81", callback, notification)
+                        WebSocketService::connect("wss://pendragon.is:8071", callback, notification)
                             .unwrap();
                     self.ws = Some(task);
                     true
@@ -323,51 +326,36 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div class="C0">
-                <div class="C1">
-                    <div class="C21">
-                        <nav class="menu">
-                            <button disabled=self.ws.is_some()
-                                    onclick=self.link.callback(|_| WsAction::Connect)>
-                                { "Connect To WebSocket" }
-                            </button>
 
-                            <button disabled=self.ws.is_none()
-                                    onclick=self.link.callback(|_| WsAction::Disconnect)>
-                                { "Close WebSocket connection" }
-                            </button>
-                        </nav>
-                    </div>
 
-                    <div class="C22">
-                        <h5>{ "Frisco-Networking-Workshop" }</h5>
-                        <input 
-                            type="text"
-                            placeholder="tetetete"
-                            class="I1"
-                            value=&self.state.value
-                            oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
-                            onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
-                                if e.key() == "Enter" { 
-                                    // let msg81 : String = Some(self.state.value).unwrap();
-                                    Some(Msg::WsAction(WsAction::SendData(false, "stahustha".to_string()   )   ))  
-                                } else { None }
-                            })
-                        />
+
+                <div class="C22">
+                    <h5>{ "Frisco-Networking-Workshop" }</h5>
+
+                    <ul class="L3002">
+                        { for self.state.scant_messages.iter().map(|e| self.view_scant_msg( e.content.to_string())) }
+                    </ul>
+                    <input 
+                        autofocus=true
+                        type="text"
+                        placeholder="..."
+                        class="I1"
+                        value=&self.state.value
+                        oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
+                        onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
+                            if e.key() == "Enter" { 
+                                Some(Msg::WsAction(WsAction::SendData(false, "...".to_string()   )   ))  
+                            } else { None }
+                        })
+                    />
+
+                    <div class="CCanvas">
+                        <canvas ref=self.node_ref.clone() />
                     </div>
                 </div>
+ 
 
-                <div class="C1">
-                    <div class="C32">
-                    </div>
-                    <div class="C31">
-                        <div class="CCanvas">
-                            <canvas ref=self.node_ref.clone() />
-                        </div>
-                        <ul class="L1">
-                            { for self.state.scant_messages.iter().map(|e| self.view_scant_msg( e.content.to_string())) }
-                        </ul>
-                    </div>
-                </div>
+
             </div>
         }
     }
@@ -447,7 +435,7 @@ impl Model {
     fn view_scant_msg(&self, scant_message: String) -> Html {
         html! {
             <div class="C5">
-                <p>
+                <p class="M100">
                     { scant_message.to_string() }
                 </p>
             </div>
@@ -457,5 +445,4 @@ impl Model {
 
 fn main() {
     yew::start_app::<Model>();
-
 }
