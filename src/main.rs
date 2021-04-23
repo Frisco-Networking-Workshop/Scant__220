@@ -1,17 +1,8 @@
-
-
-
 use anyhow::Error;
-
 use serde_derive::{Deserialize, Serialize};
-
 use wasm_bindgen::JsCast;
-
 use wasm_bindgen::prelude::*;
-
 use web_sys::{ ErrorEvent, MessageEvent, WebSocket, HtmlCanvasElement, WebGlRenderingContext as GL};
-
-
 use state::{Entry, Filter, State, ScantMessage};
 use strum::IntoEnumIterator;
 use yew::format::{Json, Nothing};
@@ -25,12 +16,9 @@ use yew::prelude::*;
 use yew_services::websocket::{WebSocketService, WebSocketStatus, WebSocketTask};
 use yew_services::fetch::{FetchService, FetchTask, Request, Response};
 
-
 macro_rules! c {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-
-
 
 #[wasm_bindgen]
 extern "C" {
@@ -38,14 +26,11 @@ extern "C" {
     fn log(s: &str);
 }
 
-
 mod state;
 
 const KEY: &str = "yew.keystone.self";
-
 // Much material copied from the example: dashboard
 type AsBinary = bool;
-
 type Message = String;
 
 pub enum Format {
@@ -75,6 +60,7 @@ pub struct DataFromFile {
 // This type is used as a request which sent to websocket connection.
 #[derive(Serialize, Debug)]
 struct WsRequest {
+    handle: String,
     value: String,
     word: String,
 }
@@ -83,11 +69,13 @@ struct WsRequest {
 #[derive(Deserialize, Debug)]
 pub struct WsResponse {
     value: String,
+    handle: String,
 }
 
-
 pub enum Msg {
-    
+    EditHandle,
+    SetHandle,
+    UpdateHandleCandide(String),
     FetchData(Format, AsBinary),
     WsAction(WsAction),
     FetchReady(Result<DataFromFile, Error>),
@@ -122,9 +110,6 @@ pub struct Model {
 }
 
 
-
-
-
 impl Component for Model {
     type Message = Msg;
     type Properties = ();
@@ -140,7 +125,9 @@ impl Component for Model {
         };
         let scant_messages = Vec::new();
         let state = State {
+            handle_candide: "".into(),
             scant_messages,
+            handle: "".into(),
             entries,
             filter: Filter::All,
             value: "".into(),
@@ -187,6 +174,23 @@ impl Component for Model {
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
+
+            Msg::EditHandle => {
+                self.state.handle_candide = self.state.handle.clone();
+                self.state.handle = "".to_string();
+                true
+            }
+
+            Msg::SetHandle => {
+                self.state.handle = self.state.handle_candide.clone();
+                self.state.handle_candide = "".to_string();
+                true
+            }
+
+            Msg::UpdateHandleCandide(handle_candide) => {
+                self.state.handle_candide = handle_candide;
+                true
+            }
             Msg::FetchData(format, binary) => {
                 let task = match format {
                     Format::Json => self.fetch_json(binary),
@@ -212,7 +216,11 @@ impl Component for Model {
                     true
                 }
                 WsAction::SendData(binary, _message)  => {
-                    let request = WsRequest { value: self.state.value.clone(), word: self.state.value.clone() };
+                    let request = WsRequest { 
+                        handle: self.state.handle.clone(),
+                        value: self.state.value.clone(), 
+                        word: self.state.value.clone(), 
+                    };
                     // let request = WsRequest 
                     if binary {
                         self.ws.as_mut().unwrap().send_binary(Json(&request));
@@ -237,10 +245,8 @@ impl Component for Model {
                 true
             }
             Msg::WsReady(response) => {
-                c!("hello {:?}", response);
                 // self.data = response.map(|data| data.value).ok();
-                response.map(|data| self.state.scant_messages.push( ScantMessage { content: data.value })).ok();
-                c!("data{:?}", self.data);
+                response.map(|data| self.state.scant_messages.push( ScantMessage { content: data.value, handle: data.handle })).ok();
                 true
             }
             Msg::Render(timestamp) => {
@@ -272,7 +278,6 @@ impl Component for Model {
                 true
             }
             Msg::Update(val) => {
-                println!("Input: {}", val);
                 self.state.value = val;
                 true
             }
@@ -326,28 +331,36 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div class="C0">
-
-
-
                 <div class="C22">
                     <h5>{ "Frisco-Networking-Workshop" }</h5>
 
                     <ul class="L3002">
-                        { for self.state.scant_messages.iter().map(|e| self.view_scant_msg( e.content.to_string())) }
+                        { for self.state.scant_messages.iter().map(|e| self.view_scant_msg( e.content.to_string(), e.handle.to_string() )) }
                     </ul>
-                    <input 
-                        autofocus=true
-                        type="text"
-                        placeholder="..."
-                        class="I1"
-                        value=&self.state.value
-                        oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
-                        onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
-                            if e.key() == "Enter" { 
-                                Some(Msg::WsAction(WsAction::SendData(false, "...".to_string()   )   ))  
-                            } else { None }
-                        })
-                    />
+                    <div class="C23">
+                        <span 
+                            class="H38"
+                            onclick=self.link.callback(|_| Msg::EditHandle )
+                        >
+                            { &self.state.handle }
+                        </span>
+
+                        { if self.state.handle.len() > 0 {self.view_nothing()} else { self.view_handle_input() }   }
+
+                        <input 
+                            autofocus=true
+                            type="text"
+                            placeholder="..."
+                            class="I1"
+                            value=&self.state.value
+                            oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
+                            onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
+                                if e.key() == "Enter" { 
+                                    Some(Msg::WsAction(WsAction::SendData(false, "...".to_string()   )   ))  
+                                } else { None }
+                            })
+                        />
+                    </div>
 
                     <div class="CCanvas">
                         <canvas ref=self.node_ref.clone() />
@@ -432,10 +445,36 @@ impl Model {
         self.render_loop = Some(handle);
     }
 
-    fn view_scant_msg(&self, scant_message: String) -> Html {
+
+    fn view_nothing(&self) -> Html {
+        html! {
+            <div></div>
+        }
+    }
+
+    fn view_handle_input(&self) -> Html {
+        html! {
+            <input
+                type="text"
+                class="I2"
+                placeholder="Name/Handle"
+                value=&self.state.handle_candide
+                oninput=self.link.callback(|e: InputData| Msg::UpdateHandleCandide(e.value))
+                onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
+                    if e.key() == "Enter" { 
+                        Some(Msg::SetHandle)  
+                    } else { None }
+                })
+            />
+        }
+    }
+
+    fn view_scant_msg(&self, scant_message: String, handle: String) -> Html {
         html! {
             <div class="C5">
                 <p class="M100">
+                    <span> { handle } </span>
+                    <span> {  "     ::  "  } </span>
                     { scant_message.to_string() }
                 </p>
             </div>
